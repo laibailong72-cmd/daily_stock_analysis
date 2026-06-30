@@ -379,6 +379,157 @@ class NotificationService(
         elif lines and lines[-1] != "":
             lines.append("")
 
+    @staticmethod
+    def _compact_line(value: Any, limit: int = 96) -> str:
+        text = str(value or "").strip().replace("\n", " ")
+        while "  " in text:
+            text = text.replace("  ", " ")
+        if len(text) <= limit:
+            return text
+        return text[: max(0, limit - 1)].rstrip() + "…"
+
+    @staticmethod
+    def _result_dashboard(result: AnalysisResult) -> Dict[str, Any]:
+        dashboard = getattr(result, "dashboard", None)
+        return dashboard if isinstance(dashboard, dict) else {}
+
+    @classmethod
+    def _result_price_position(cls, result: AnalysisResult) -> Dict[str, Any]:
+        dashboard = cls._result_dashboard(result)
+        data_persp = dashboard.get("data_perspective") if isinstance(dashboard, dict) else {}
+        if isinstance(data_persp, dict):
+            price_data = data_persp.get("price_position")
+            if isinstance(price_data, dict):
+                return price_data
+        snapshot = getattr(result, "market_snapshot", None)
+        return snapshot if isinstance(snapshot, dict) else {}
+
+    @classmethod
+    def _opportunity_reason(cls, result: AnalysisResult) -> str:
+        dashboard = cls._result_dashboard(result)
+        core = dashboard.get("core_conclusion") if isinstance(dashboard, dict) else {}
+        candidates = []
+        if isinstance(core, dict):
+            candidates.extend([core.get("one_sentence"), core.get("time_sensitivity")])
+        candidates.extend([
+            getattr(result, "key_points", ""),
+            getattr(result, "buy_reason", ""),
+            getattr(result, "analysis_summary", ""),
+            getattr(result, "technical_analysis", ""),
+        ])
+        for item in candidates:
+            text = cls._compact_line(item, limit=90)
+            if text:
+                return text
+        return "信号来自综合评分、趋势与量价结构。"
+
+    @classmethod
+    def _is_dip_watch_candidate(cls, result: AnalysisResult) -> bool:
+        score = int(getattr(result, "sentiment_score", 0) or 0)
+        if score < 42 or str(getattr(result, "decision_type", "") or "").lower() == "sell":
+            return False
+
+        combined_text = " ".join(
+            str(getattr(result, attr, "") or "")
+            for attr in (
+                "operation_advice",
+                "trend_prediction",
+                "trend_analysis",
+                "technical_analysis",
+                "ma_analysis",
+                "volume_analysis",
+                "pattern_analysis",
+                "buy_reason",
+                "analysis_summary",
+            )
+        )
+        dip_keywords = (
+            "回踩", "低吸", "抄底", "超跌", "止跌", "支撑", "缩量", "企稳",
+            "pullback", "oversold", "support", "reversal", "dip",
+        )
+        if any(keyword.lower() in combined_text.lower() for keyword in dip_keywords):
+            return True
+
+        price_data = cls._result_price_position(result)
+        bias_ma5 = _safe_float(price_data.get("bias_ma5")) if price_data else None
+        support = price_data.get("support_level") if price_data else None
+        return bias_ma5 is not None and bias_ma5 <= 1.0 and support not in (None, "", "N/A")
+
+    def _append_opportunity_radar(
+        self,
+        lines: List[str],
+        sorted_results: List[AnalysisResult],
+        report_language: str,
+    ) -> None:
+        if not sorted_results:
+            return
+
+        is_en = report_language == "en"
+        potential_title = "Potential Watchlist" if is_en else "潜力股观察"
+        dip_title = "Dip-Buy Watch Signals" if is_en else "可抄底观察信号"
+        empty_text = (
+            "No high-conviction opportunity signal from the current watchlist. Wait for cleaner price/volume confirmation."
+            if is_en
+            else "当前自选股未出现高确定性潜力/抄底信号，等待更清晰的量价确认。"
+        )
+        note_text = (
+            "Watchlist only. Use trigger/invalidation discipline; not investment advice."
+            if is_en
+            else "仅作观察池：必须等待触发条件和失效条件确认，不构成投资建议。"
+        )
+
+        potential = [
+            r for r in sorted_results
+            if int(getattr(r, "sentiment_score", 0) or 0) >= 60
+            and str(getattr(r, "decision_type", "") or "").lower() != "sell"
+        ][:5]
+        dip_watch = [r for r in sorted_results if self._is_dip_watch_candidate(r)][:5]
+
+        if not potential and not dip_watch:
+            lines.extend([
+                "## 🎯 今日机会雷达" if not is_en else "## 🎯 Opportunity Radar",
+                "",
+                f"- {empty_text}",
+                f"- {note_text}",
+                "",
+                "---",
+                "",
+            ])
+            return
+
+        lines.extend([
+            "## 🎯 今日机会雷达" if not is_en else "## 🎯 Opportunity Radar",
+            "",
+            f"> {note_text}",
+            "",
+        ])
+
+        def append_rows(title: str, rows: List[AnalysisResult], fallback: str) -> None:
+            lines.extend([f"### {title}", ""])
+            if not rows:
+                lines.extend([f"- {fallback}", ""])
+                return
+            for result in rows:
+                name = self._get_display_name(result, report_language)
+                advice = localize_operation_advice(result.operation_advice, report_language)
+                trend = localize_trend_prediction(result.trend_prediction, report_language)
+                score = int(getattr(result, "sentiment_score", 0) or 0)
+                reason = self._opportunity_reason(result)
+                lines.append(f"- **{name}({result.code})** | {advice} | {trend} | 评分 {score}：{reason}")
+            lines.append("")
+
+        append_rows(
+            potential_title,
+            potential,
+            "当前没有评分 60+ 的强趋势潜力候选。" if not is_en else "No 60+ score momentum candidate today.",
+        )
+        append_rows(
+            dip_title,
+            dip_watch,
+            "当前没有明确的回踩/超跌企稳候选。" if not is_en else "No clear pullback/reversal candidate today.",
+        )
+        lines.extend(["---", ""])
+
     def _should_show_llm_model(self) -> bool:
         return bool(getattr(self._config, "report_show_llm_model", self._report_show_llm_model))
 
@@ -842,6 +993,7 @@ class NotificationService(
             "---",
             "",
         ])
+        self._append_opportunity_radar(report_lines, sorted_results, report_language)
 
         # Issue #262: summary_only 时仅输出摘要，跳过个股详情
         if self._report_summary_only:
@@ -1177,6 +1329,7 @@ class NotificationService(
                 "---",
                 "",
             ])
+            self._append_opportunity_radar(report_lines, sorted_results, report_language)
 
         # 逐个股票的决策仪表盘（Issue #262: summary_only 时跳过详情）
         if not self._report_summary_only:

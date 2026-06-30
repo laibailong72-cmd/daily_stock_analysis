@@ -1329,13 +1329,17 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 (Analyze only the provided industry-sector and concept/theme rankings.)""")
                 section_number += 1
             sections.extend([
-                f"""### {section_number}. News Catalysts
+                f"""### {section_number}. Hot Themes & Key Stocks
+(Name the strongest current themes and representative stocks to watch. If individual-stock quote data was not provided, mark them as a watchlist that needs price confirmation.)""",
+                f"""### {section_number + 1}. Opportunity Watchlist & Dip-Buy Signals
+(Separate US and A-share ideas when relevant. Include potential leaders, oversold/reversal candidates, trigger conditions, invalidation levels, and state this is not investment advice.)""",
+                f"""### {section_number + 2}. News Catalysts
 (Connect recent news to index price action and macro/external-market clues. Do not infer unsupported breadth, fund-flow, or sector-ranking data.)""",
-                f"""### {section_number + 1}. Outlook
+                f"""### {section_number + 3}. Outlook
 (Provide the near-term outlook based on index price action and the available news.)""",
-                f"""### {section_number + 2}. Risk Alerts
+                f"""### {section_number + 4}. Risk Alerts
 (List the main risks to monitor.)""",
-                f"""### {section_number + 3}. Strategy Plan
+                f"""### {section_number + 5}. Strategy Plan
 (Provide an offensive/balanced/defensive stance, a position-sizing guideline, one invalidation trigger, and end with "For reference only, not investment advice.")""",
             ])
             return "\n\n".join(sections)
@@ -1344,16 +1348,22 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             return """### 三、板块主线
 （区分行业板块与概念题材，分析领涨/领跌背后的逻辑、持续性和是否形成主线）
 
-### 四、资金与情绪
+### 四、热门股票与主线观察
+（围绕半导体、AI、算力、机器人、新能源、消费电子等方向，列出值得跟踪的代表股票；没有个股行情数据时必须标注为“观察池，需量价确认”）
+
+### 五、潜力股与抄底观察
+（分别给出“强趋势潜力股观察”和“回踩/超跌后的抄底观察信号”；每个信号必须包含触发条件、失效条件和仓位纪律，不得输出无条件买入）
+
+### 六、资金与情绪
 （解读成交额、涨跌停结构、市场宽度和风险偏好）
 
-### 五、消息催化
+### 七、消息催化
 （结合近三日新闻，提炼真正影响明日交易的催化或扰动）
 
-### 六、明日交易计划
+### 八、明日交易计划
 （给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）
 
-### 七、风险提示
+### 九、风险提示
 （列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）"""
 
         numerals = ["一", "二", "三", "四", "五", "六", "七", "八"]
@@ -1367,6 +1377,14 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
         if self.profile.has_sector_rankings:
             add_section("板块主线", "（仅分析已提供的行业板块与概念题材榜单，不扩展未提供的数据）")
+        add_section(
+            "热门股票与主线观察",
+            "（围绕当前市场最强主题列出代表股票观察池；没有个股行情数据时必须标注为“观察池，需量价确认”）",
+        )
+        add_section(
+            "潜力股与抄底观察",
+            "（给出强趋势潜力股观察、回踩/超跌后的抄底观察信号；必须包含触发条件、失效条件和仓位纪律，不得输出无条件买入）",
+        )
         if self.profile.has_market_stats:
             add_section("资金与情绪", "（仅解读已提供的成交额、涨跌停结构、市场宽度和风险偏好数据）")
         add_section(
@@ -1376,6 +1394,37 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         add_section("明日交易计划", "（给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）")
         add_section("风险提示", "（列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）")
         return "\n\n".join(sections)
+
+    def _get_hot_watchlist_prompt_block(self) -> str:
+        """Return market-specific watchlist guidance for market-review prompts."""
+        if self._get_review_language() == "en":
+            if self.region == "us":
+                return """## Hot Theme Watchlist Guidance
+- Discuss AI infrastructure, semiconductors, cloud platforms, consumer technology, and mega-cap leadership.
+- Representative stocks may include Apple, Nvidia, Microsoft, AMD, Broadcom, TSMC, Alphabet, Meta, Amazon, Tesla, and other clearly relevant names.
+- Separate "momentum leaders" from "dip-buy/reversal candidates"; require price confirmation and invalidation levels."""
+            if self.region == "cn":
+                return """## Hot Theme Watchlist Guidance
+- Discuss semiconductors, AI computing, robotics, new energy, consumer electronics, advanced manufacturing, and policy-driven themes.
+- Use representative A-share leaders only as a watchlist when individual stock quote data is not supplied.
+- Separate "momentum leaders" from "dip-buy/reversal candidates"; require price confirmation and invalidation levels."""
+            return """## Hot Theme Watchlist Guidance
+- Name the strongest themes and representative stocks only when supported by the available data or news.
+- Mark unsupported individual-stock ideas as a watchlist that requires price confirmation."""
+
+        if self.region == "us":
+            return """## 热门股票与主题观察指引
+- 必须覆盖 AI/算力、半导体、云计算、消费科技与大型科技权重的主线变化。
+- 代表股票可围绕 Apple、Nvidia、Microsoft、AMD、Broadcom、TSMC、Alphabet、Meta、Amazon、Tesla 等展开，但没有个股行情数据时只能作为“观察池”。
+- 将股票分成“强趋势潜力股观察”和“回踩/超跌抄底观察”，每个方向给出触发条件、失效条件和仓位纪律。"""
+        if self.region == "cn":
+            return """## 热门股票与主题观察指引
+- 必须覆盖 A 股半导体、AI/算力、机器人、新能源、消费电子、高端制造、政策催化等主线。
+- 结合已提供的行业/概念榜、指数结构和新闻线索，列出代表股票或细分方向；没有个股行情数据时只能作为“观察池，需量价确认”。
+- 将股票分成“强趋势潜力股观察”和“回踩/超跌抄底观察”，每个方向给出触发条件、失效条件和仓位纪律。"""
+        return """## 热门股票与主题观察指引
+- 结合已提供的指数和新闻线索，列出当前最强主题和代表股票观察池。
+- 没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入。"""
 
     def _build_review_prompt(self, overview: MarketOverview, news: List) -> str:
         """构建复盘报告 Prompt"""
@@ -1539,6 +1588,8 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
 
 {self._get_strategy_prompt_block()}
 
+{self._get_hot_watchlist_prompt_block()}
+
 ---
 
 # Output Template (follow this structure)
@@ -1592,6 +1643,8 @@ Output the report content directly, no extra commentary.
 {data_no_indices_hint}
 
 {self._get_strategy_prompt_block()}
+
+{self._get_hot_watchlist_prompt_block()}
 
 ---
 
