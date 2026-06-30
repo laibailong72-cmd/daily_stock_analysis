@@ -1,9 +1,12 @@
 name: 每日股票分析
 
 on:
-  # 定时触发 - 每天北京时间 18:00 (UTC 10:00)
+  # 定时触发：
+  # - UTC 23:30 周一到周五 = 北京时间次日 07:30，用于美股收盘后复盘
+  # - UTC 10:00 周一到周五 = 北京时间当天 18:00，用于 A 股收盘后复盘
   schedule:
-    - cron: '0 10 * * 1-5'     # 周一到周五，UTC 10:00 = 北京时间 18:00
+    - cron: '30 23 * * 1-5'
+    - cron: '0 10 * * 1-5'
   
   # 手动触发
   workflow_dispatch:
@@ -373,6 +376,7 @@ jobs:
           STOCK_LIST_CONFIG: ${{ vars.STOCK_LIST || secrets.STOCK_LIST }}
           MARKET_REVIEW_REGION: ${{ vars.MARKET_REVIEW_REGION || secrets.MARKET_REVIEW_REGION || 'cn' }}
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
+          ALPHASIFT_ENABLED: ${{ vars.ALPHASIFT_ENABLED || secrets.ALPHASIFT_ENABLED || 'false' }}
           
           # ==========================================
           # 运行配置 ⬅️ 新增！
