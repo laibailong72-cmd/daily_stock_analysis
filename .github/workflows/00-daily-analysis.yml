@@ -480,12 +480,28 @@ jobs:
 
           # 判断运行模式
           MODE="${{ github.event.inputs.mode || 'full' }}"
+          EFFECTIVE_MARKET_REVIEW_REGION="$MARKET_REVIEW_REGION"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ steps.schedule_guard.outputs.run_slot }}" in
+              morning)
+                MODE="market-only"
+                EFFECTIVE_MARKET_REVIEW_REGION="us"
+                ;;
+              evening)
+                MODE="full"
+                EFFECTIVE_MARKET_REVIEW_REGION="cn"
+                ;;
+            esac
+          fi
+          export MARKET_REVIEW_REGION="$EFFECTIVE_MARKET_REVIEW_REGION"
           
           echo "=========================================="
           echo "🚀 A股自选股智能分析系统"
           echo "=========================================="
           echo "⏰ 时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
           echo "🎯 运行模式: $MODE"
+          echo "🌐 大盘范围: $MARKET_REVIEW_REGION"
+          echo "🕒 定时槽位: ${{ steps.schedule_guard.outputs.run_slot }}"
           echo "📊 自选股: $STOCK_LIST"
           echo "📝 报告类型: $REPORT_TYPE"
           echo ""
