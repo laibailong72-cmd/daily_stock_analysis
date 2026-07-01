@@ -2,13 +2,17 @@ name: 每日股票分析
 
 on:
   # 定时触发：
-  # - UTC 23:30 / 00:00 / 00:30 = 北京时间 07:30 / 08:00 / 08:30，用于美股收盘后复盘
-  # - UTC 10:00 / 10:30 = 北京时间 18:00 / 18:30，用于 A 股收盘后复盘
+  # - 早报目标：北京时间 07:30，美股大盘；提前触发会等到 07:30，延迟触发则立即跑
+  # - 晚报目标：北京时间 18:00，A 股大盘 + 自选股；提前触发会等到 18:00，延迟触发则立即跑
   # 多个触发点用于对冲 GitHub Actions schedule 偶发延迟/漏触发；下方 guard 会按日期和时段去重。
   schedule:
+    - cron: '30 22 * * 1-5'
+    - cron: '0 23 * * 1-5'
     - cron: '30 23 * * 1-5'
     - cron: '0 0 * * 1-5'
     - cron: '30 0 * * 1-5'
+    - cron: '0 9 * * 1-5'
+    - cron: '30 9 * * 1-5'
     - cron: '0 10 * * 1-5'
     - cron: '30 10 * * 1-5'
   
@@ -46,7 +50,7 @@ jobs:
     # 推荐位置仍是 Settings -> Secrets and variables -> Actions -> Repository variables。
     environment: STOCK_LIST
     # 添加超时限制，防止任务卡死
-    timeout-minutes: ${{ fromJSON(vars.ANALYSIS_TIMEOUT_MINUTES || '30') }}
+    timeout-minutes: ${{ fromJSON(vars.ANALYSIS_TIMEOUT_MINUTES || '90') }}
     
     steps:
       - name: 随机延迟（避免固定时间访问）
@@ -67,20 +71,33 @@ jobs:
           should_run="true"
           slot="manual"
           marker_name=""
+          target_hhmm=""
           sh_date="$(TZ='Asia/Shanghai' date '+%Y%m%d')"
 
           case "${EVENT_SCHEDULE:-}" in
-            "30 23 * * 1-5"|"0 0 * * 1-5"|"30 0 * * 1-5")
+            "30 22 * * 1-5"|"0 23 * * 1-5"|"30 23 * * 1-5"|"0 0 * * 1-5"|"30 0 * * 1-5")
               slot="morning"
               marker_name="daily-stock-analysis-${sh_date}-morning"
+              target_hhmm="07:30"
               ;;
-            "0 10 * * 1-5"|"30 10 * * 1-5")
+            "0 9 * * 1-5"|"30 9 * * 1-5"|"0 10 * * 1-5"|"30 10 * * 1-5")
               slot="evening"
               marker_name="daily-stock-analysis-${sh_date}-evening"
+              target_hhmm="18:00"
               ;;
           esac
 
           if [ "$EVENT_NAME" = "schedule" ] && [ -n "$marker_name" ]; then
+            if [ -n "$target_hhmm" ]; then
+              now_epoch="$(TZ='Asia/Shanghai' date '+%s')"
+              target_epoch="$(TZ='Asia/Shanghai' date -d "$(TZ='Asia/Shanghai' date '+%Y-%m-%d') $target_hhmm:00" '+%s')"
+              wait_seconds=$((target_epoch - now_epoch))
+              if [ "$wait_seconds" -gt 0 ]; then
+                echo "当前早于目标时间 $target_hhmm，北京时间等待 ${wait_seconds}s 后再检查/运行。"
+                sleep "$wait_seconds"
+              fi
+            fi
+
             marker_exists="$(
               curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
@@ -97,7 +114,8 @@ jobs:
           echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
           echo "run_slot=$slot" >> "$GITHUB_OUTPUT"
           echo "marker_name=$marker_name" >> "$GITHUB_OUTPUT"
-          echo "定时槽位: $slot; should_run=$should_run; marker=$marker_name"
+          echo "target_hhmm=$target_hhmm" >> "$GITHUB_OUTPUT"
+          echo "定时槽位: $slot; target=$target_hhmm; should_run=$should_run; marker=$marker_name"
       
       - name: 设置 Python 环境
         if: steps.schedule_guard.outputs.should_run == 'true'
