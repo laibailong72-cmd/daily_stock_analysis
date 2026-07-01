@@ -45,7 +45,9 @@ class MarketAnalyzerAIStockSelectionTestCase(unittest.TestCase):
         self.assertIn("有潜力的股票", prompt)
         self.assertIn("可抄底观察信号", prompt)
         self.assertIn("只分析 A 股", prompt)
+        self.assertIn("长鑫科技", prompt)
         self.assertIn("中际旭创", prompt)
+        self.assertNotIn("比亚迪", prompt)
         self.assertNotIn("只分析美股", prompt)
         self.assertNotIn("Nvidia(NVDA)", prompt)
 
