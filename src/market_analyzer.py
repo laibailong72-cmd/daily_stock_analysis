@@ -53,6 +53,18 @@ _CHINESE_SECTION_PATTERNS = {
 }
 
 
+_US_AI_STOCK_POOL = (
+    "Apple(AAPL)、Nvidia(NVDA)、Microsoft(MSFT)、AMD(AMD)、Broadcom(AVGO)、"
+    "TSMC(TSM)、Alphabet(GOOGL/GOOG)、Meta(META)、Amazon(AMZN)、Tesla(TSLA)、"
+    "Palantir(PLTR)、Super Micro Computer(SMCI)"
+)
+
+_CN_AI_STOCK_POOL = (
+    "中际旭创、工业富联、新易盛、寒武纪、海光信息、北方华创、中微公司、韦尔股份、"
+    "立讯精密、比亚迪、宁德时代、拓普集团、汇川技术、科大讯飞"
+)
+
+
 @dataclass
 class MarketIndex:
     """大盘指数数据"""
@@ -1309,13 +1321,16 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 ### 4. Sector Highlights
 (Distinguish industry-sector moves from concept/theme moves, then analyze drivers and persistence.)
 
-### 5. Outlook
+### 5. AI Stock Selection Radar
+(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Include the theme, reason, trigger condition, invalidation condition, and risk note for each candidate.)
+
+### 6. Outlook
 (Provide the near-term outlook based on price action and news.)
 
-### 6. Risk Alerts
+### 7. Risk Alerts
 (List the main risks to monitor.)
 
-### 7. Strategy Plan
+### 8. Strategy Plan
 (Provide an offensive/balanced/defensive stance, a position-sizing guideline, one invalidation trigger, and end with "For reference only, not investment advice.")"""
 
             section_number = 3
@@ -1329,17 +1344,15 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 (Analyze only the provided industry-sector and concept/theme rankings.)""")
                 section_number += 1
             sections.extend([
-                f"""### {section_number}. Hot Themes & Key Stocks
-(Name the strongest current themes and representative stocks to watch. If individual-stock quote data was not provided, mark them as a watchlist that needs price confirmation.)""",
-                f"""### {section_number + 1}. Opportunity Watchlist & Dip-Buy Signals
-(Separate US and A-share ideas when relevant. Include potential leaders, oversold/reversal candidates, trigger conditions, invalidation levels, and state this is not investment advice.)""",
-                f"""### {section_number + 2}. News Catalysts
+                f"""### {section_number}. AI Stock Selection Radar
+(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Include the theme, reason, trigger condition, invalidation condition, and risk note for each candidate.)""",
+                f"""### {section_number + 1}. News Catalysts
 (Connect recent news to index price action and macro/external-market clues. Do not infer unsupported breadth, fund-flow, or sector-ranking data.)""",
-                f"""### {section_number + 3}. Outlook
+                f"""### {section_number + 2}. Outlook
 (Provide the near-term outlook based on index price action and the available news.)""",
-                f"""### {section_number + 4}. Risk Alerts
+                f"""### {section_number + 3}. Risk Alerts
 (List the main risks to monitor.)""",
-                f"""### {section_number + 5}. Strategy Plan
+                f"""### {section_number + 4}. Strategy Plan
 (Provide an offensive/balanced/defensive stance, a position-sizing guideline, one invalidation trigger, and end with "For reference only, not investment advice.")""",
             ])
             return "\n\n".join(sections)
@@ -1348,22 +1361,19 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             return """### 三、板块主线
 （区分行业板块与概念题材，分析领涨/领跌背后的逻辑、持续性和是否形成主线）
 
-### 四、热门股票与主线观察
-（围绕半导体、AI、算力、机器人、新能源、消费电子等方向，列出值得跟踪的代表股票；没有个股行情数据时必须标注为“观察池，需量价确认”）
+### 四、AI选股雷达
+（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每个候选必须包含所属主线、入选理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入）
 
-### 五、潜力股与抄底观察
-（分别给出“强趋势潜力股观察”和“回踩/超跌后的抄底观察信号”；每个信号必须包含触发条件、失效条件和仓位纪律，不得输出无条件买入）
-
-### 六、资金与情绪
+### 五、资金与情绪
 （解读成交额、涨跌停结构、市场宽度和风险偏好）
 
-### 七、消息催化
+### 六、消息催化
 （结合近三日新闻，提炼真正影响明日交易的催化或扰动）
 
-### 八、明日交易计划
+### 七、明日交易计划
 （给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）
 
-### 九、风险提示
+### 八、风险提示
 （列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）"""
 
         numerals = ["一", "二", "三", "四", "五", "六", "七", "八"]
@@ -1378,12 +1388,8 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         if self.profile.has_sector_rankings:
             add_section("板块主线", "（仅分析已提供的行业板块与概念题材榜单，不扩展未提供的数据）")
         add_section(
-            "热门股票与主线观察",
-            "（围绕当前市场最强主题列出代表股票观察池；没有个股行情数据时必须标注为“观察池，需量价确认”）",
-        )
-        add_section(
-            "潜力股与抄底观察",
-            "（给出强趋势潜力股观察、回踩/超跌后的抄底观察信号；必须包含触发条件、失效条件和仓位纪律，不得输出无条件买入）",
+            "AI选股雷达",
+            "（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每个候选必须包含所属主线、入选理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”）",
         )
         if self.profile.has_market_stats:
             add_section("资金与情绪", "（仅解读已提供的成交额、涨跌停结构、市场宽度和风险偏好数据）")
@@ -1399,32 +1405,121 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         """Return market-specific watchlist guidance for market-review prompts."""
         if self._get_review_language() == "en":
             if self.region == "us":
-                return """## Hot Theme Watchlist Guidance
-- Discuss AI infrastructure, semiconductors, cloud platforms, consumer technology, and mega-cap leadership.
-- Representative stocks may include Apple, Nvidia, Microsoft, AMD, Broadcom, TSMC, Alphabet, Meta, Amazon, Tesla, and other clearly relevant names.
-- Separate "momentum leaders" from "dip-buy/reversal candidates"; require price confirmation and invalidation levels."""
+                return f"""## AI Stock Selection Radar Guidance
+- Current market scope: US only. Do not mix in A-share candidates.
+- Focus themes: AI infrastructure, semiconductors, cloud platforms, consumer technology, mega-cap technology leadership, and high-beta AI application names.
+- Reference pool for screening, not automatic recommendations: {_US_AI_STOCK_POOL}.
+- In the "AI Stock Selection Radar" section, output exactly three sublists: "Daily Hot Stocks", "High-Potential Stocks", and "Dip-Buy/Reversal Watch".
+- Each candidate must include theme, reason, trigger condition, invalidation condition, and a risk note. If individual-stock quote data was not supplied, mark it as a watchlist idea requiring price/volume confirmation."""
             if self.region == "cn":
-                return """## Hot Theme Watchlist Guidance
-- Discuss semiconductors, AI computing, robotics, new energy, consumer electronics, advanced manufacturing, and policy-driven themes.
-- Use representative A-share leaders only as a watchlist when individual stock quote data is not supplied.
-- Separate "momentum leaders" from "dip-buy/reversal candidates"; require price confirmation and invalidation levels."""
+                return f"""## AI Stock Selection Radar Guidance
+- Current market scope: A-share only. Do not mix in US candidates.
+- Focus themes: semiconductors, AI computing, robotics, new energy, consumer electronics, advanced manufacturing, and policy-driven themes.
+- Reference pool for screening, not automatic recommendations: {_CN_AI_STOCK_POOL}.
+- In the "AI Stock Selection Radar" section, output exactly three sublists: "Daily Hot Stocks", "High-Potential Stocks", and "Dip-Buy/Reversal Watch".
+- Each candidate must include theme, reason, trigger condition, invalidation condition, and a risk note. If individual-stock quote data was not supplied, mark it as a watchlist idea requiring price/volume confirmation."""
             return """## Hot Theme Watchlist Guidance
 - Name the strongest themes and representative stocks only when supported by the available data or news.
 - Mark unsupported individual-stock ideas as a watchlist that requires price confirmation."""
 
         if self.region == "us":
-            return """## 热门股票与主题观察指引
-- 必须覆盖 AI/算力、半导体、云计算、消费科技与大型科技权重的主线变化。
-- 代表股票可围绕 Apple、Nvidia、Microsoft、AMD、Broadcom、TSMC、Alphabet、Meta、Amazon、Tesla 等展开，但没有个股行情数据时只能作为“观察池”。
-- 将股票分成“强趋势潜力股观察”和“回踩/超跌抄底观察”，每个方向给出触发条件、失效条件和仓位纪律。"""
+            return f"""## AI选股雷达指引
+- 当前市场范围：只分析美股，不混入 A 股候选。
+- 必须覆盖 AI/算力、半导体、云计算、消费科技、大型科技权重、高弹性 AI 应用等主线变化。
+- 候选参考池仅用于筛选，不代表自动推荐：{_US_AI_STOCK_POOL}。
+- 在“AI选股雷达”章节必须固定分成三栏：“每日热门股”“有潜力的股票”“可抄底观察信号”。
+- 每个候选必须写清：所属主线、入选理由、触发条件、失效条件、风险提示；没有个股行情数据时只能作为“观察池，需量价确认”。"""
         if self.region == "cn":
-            return """## 热门股票与主题观察指引
+            return f"""## AI选股雷达指引
+- 当前市场范围：只分析 A 股，不混入美股候选。
 - 必须覆盖 A 股半导体、AI/算力、机器人、新能源、消费电子、高端制造、政策催化等主线。
-- 结合已提供的行业/概念榜、指数结构和新闻线索，列出代表股票或细分方向；没有个股行情数据时只能作为“观察池，需量价确认”。
-- 将股票分成“强趋势潜力股观察”和“回踩/超跌抄底观察”，每个方向给出触发条件、失效条件和仓位纪律。"""
+- 候选参考池仅用于筛选，不代表自动推荐：{_CN_AI_STOCK_POOL}。
+- 结合已提供的行业/概念榜、指数结构和新闻线索，在“AI选股雷达”章节固定分成三栏：“每日热门股”“有潜力的股票”“可抄底观察信号”。
+- 每个候选必须写清：所属主线、入选理由、触发条件、失效条件、风险提示；没有个股行情数据时只能作为“观察池，需量价确认”。"""
         return """## 热门股票与主题观察指引
 - 结合已提供的指数和新闻线索，列出当前最强主题和代表股票观察池。
 - 没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入。"""
+
+    def _build_ai_stock_selection_template_block(self, language: str) -> str:
+        """Build a conservative fallback AI-stock-selection section for template reviews."""
+        if language == "en":
+            if self.region == "us":
+                return f"""### AI Stock Selection Radar
+> Watchlist only. Confirm with price/volume triggers and invalidation discipline; not investment advice.
+
+#### Daily Hot Stocks
+- AI / semiconductor / mega-cap tech focus: {_US_AI_STOCK_POOL}. Prioritize names tied to today's strongest index and news clues.
+
+#### High-Potential Stocks
+- Screen for leaders holding above key moving averages, stronger relative strength than Nasdaq/S&P 500, and continued AI or cloud catalyst confirmation.
+
+#### Dip-Buy/Reversal Watch
+- Only watch for names that pull back toward support, stop falling with improving volume, and reclaim intraday resistance. Invalidation: support breaks with expanding downside volume.
+"""
+            if self.region == "cn":
+                return f"""### AI Stock Selection Radar
+> Watchlist only. Confirm with price/volume triggers and invalidation discipline; not investment advice.
+
+#### Daily Hot Stocks
+- Semiconductor / AI computing / robotics / new-energy focus: {_CN_AI_STOCK_POOL}. Prioritize names tied to today's strongest sector and concept clues.
+
+#### High-Potential Stocks
+- Screen for sector leaders with improving breadth, stronger relative strength than major A-share indices, and policy or earnings catalyst confirmation.
+
+#### Dip-Buy/Reversal Watch
+- Only watch for oversold leaders that stabilize near support, show shrinking downside volume, and recover short-term moving averages. Invalidation: support breaks or sector leadership fades.
+"""
+            return """### AI Stock Selection Radar
+> Watchlist only. Confirm with price/volume triggers and invalidation discipline; not investment advice.
+
+#### Daily Hot Stocks
+- Track representative stocks in the strongest themes confirmed by today's index and news clues.
+
+#### High-Potential Stocks
+- Screen for relative-strength leaders with clear catalysts.
+
+#### Dip-Buy/Reversal Watch
+- Only watch pullbacks that stabilize at support and reclaim short-term resistance.
+"""
+
+        if self.region == "us":
+            return f"""### AI选股雷达
+> 仅作观察池：必须等待量价触发和失效条件确认，不构成投资建议。
+
+#### 每日热门股
+- AI/半导体/大型科技权重方向：{_US_AI_STOCK_POOL}。优先筛选与当日指数和新闻线索共振的个股。
+
+#### 有潜力的股票
+- 重点观察相对纳指/标普更强、站稳关键均线、且 AI/云/算力催化仍在延续的龙头。
+
+#### 可抄底观察信号
+- 只观察回踩支撑后止跌、缩量调整后重新放量、并收复日内压力位的候选。失效条件：放量跌破支撑或主线退潮。
+"""
+        if self.region == "cn":
+            return f"""### AI选股雷达
+> 仅作观察池：必须等待量价触发和失效条件确认，不构成投资建议。
+
+#### 每日热门股
+- A股半导体/AI算力/机器人/新能源方向：{_CN_AI_STOCK_POOL}。优先筛选与当日行业、概念榜和新闻线索共振的个股。
+
+#### 有潜力的股票
+- 重点观察板块内强于指数、资金承接改善、政策或业绩催化明确的核心标的。
+
+#### 可抄底观察信号
+- 只观察超跌后靠近支撑企稳、缩量回踩后重新放量、并收复短期均线的候选。失效条件：跌破支撑、板块主线退潮或放量长阴。
+"""
+        return """### AI选股雷达
+> 仅作观察池：必须等待量价触发和失效条件确认，不构成投资建议。
+
+#### 每日热门股
+- 跟踪当日最强主题中的代表股票。
+
+#### 有潜力的股票
+- 筛选具备相对强度和明确催化的龙头。
+
+#### 可抄底观察信号
+- 只观察回踩支撑企稳并重新放量的候选。
+"""
 
     def _build_review_prompt(self, overview: MarketOverview, news: List) -> str:
         """构建复盘报告 Prompt"""
@@ -1736,6 +1831,7 @@ Output the report content directly, no extra commentary.
                 "kr": "Korea Market Recap",
             }
             market_name = market_names.get(self.region, "A-share Market Recap")
+            ai_stock_selection_block = self._build_ai_stock_selection_template_block(template_language)
             report = f"""## {overview.date} {market_name}
 
 ### 1. Market Summary
@@ -1745,7 +1841,9 @@ Today's {self._get_market_scope_name(template_language)} showed **{market_mood}*
 {indices_text or "- No index data available"}
 {stats_section}
 {sector_section}
-### 5. Risk Alerts
+{ai_stock_selection_block}
+
+### Risk Alerts
 Market conditions can change quickly. The data above is for reference only and does not constitute investment advice.
 
 {self._get_strategy_markdown_block(template_language)}
@@ -1782,9 +1880,10 @@ Market conditions can change quickly. The data above is for reference only and d
             if self.profile.has_sector_rankings
             else ""
         )
+        ai_stock_selection_block = self._build_ai_stock_selection_template_block(template_language)
         funds_section = (
             """
-### 四、资金与情绪
+### 资金与情绪
 - 结合成交额和涨跌家数看，当前更适合等待确认，避免仅凭单一热点追高。
 """
             if self.profile.has_market_stats
@@ -1800,14 +1899,16 @@ Market conditions can change quickly. The data above is for reference only and d
 ### 二、指数结构
 {indices_block or indices_text or "暂无指数数据。"}
 {sector_section}
+{ai_stock_selection_block}
+
 {funds_section}
 
-### 五、消息催化
+### 消息催化
 - 暂无可用新闻时，应降低对题材持续性的确定性判断。
 
 {self._get_strategy_markdown_block(template_language)}
 
-### 七、风险提示
+### 风险提示
 - 市场有风险，投资需谨慎。以上数据仅供参考，不构成投资建议。
 
 ---
