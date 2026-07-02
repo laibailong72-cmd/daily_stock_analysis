@@ -6,15 +6,13 @@ on:
   # - 晚报目标：北京时间 18:00，A 股大盘 + 自选股；提前触发会等到 18:00，延迟触发则立即跑
   # 多个触发点用于对冲 GitHub Actions schedule 偶发延迟/漏触发；下方 guard 会按日期和时段去重。
   schedule:
-    - cron: '30 22 * * 1-5'
-    - cron: '0 23 * * 1-5'
-    - cron: '30 23 * * 1-5'
-    - cron: '0 0 * * 1-5'
-    - cron: '30 0 * * 1-5'
-    - cron: '0 9 * * 1-5'
-    - cron: '30 9 * * 1-5'
-    - cron: '0 10 * * 1-5'
-    - cron: '30 10 * * 1-5'
+    # 北京时间周一至周五 06:30-08:50 之间多次尝试，目标 07:30
+    - cron: '30-59/10 22 * * 0-4'
+    - cron: '*/10 23 * * 0-4'
+    - cron: '*/10 0 * * 1-5'
+    # 北京时间周一至周五 17:00-18:50 之间多次尝试，目标 18:00
+    - cron: '*/10 9 * * 1-5'
+    - cron: '*/10 10 * * 1-5'
   
   # 手动触发
   workflow_dispatch:
@@ -50,50 +48,76 @@ jobs:
     # 推荐位置仍是 Settings -> Secrets and variables -> Actions -> Repository variables。
     environment: STOCK_LIST
     # 添加超时限制，防止任务卡死
-    timeout-minutes: ${{ fromJSON(vars.ANALYSIS_TIMEOUT_MINUTES || '90') }}
+    timeout-minutes: ${{ fromJSON(vars.ANALYSIS_TIMEOUT_MINUTES || '180') }}
     
     steps:
-      - name: 随机延迟（避免固定时间访问）
-        run: sleep $((RANDOM % 60))  # 随机延迟0-60秒启动
-      
       - name: 检出代码
         uses: actions/checkout@v5
 
-      - name: 定时防漏防重
+      - name: 识别定时槽位
         id: schedule_guard
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
           set -euo pipefail
-          should_run="true"
           slot="manual"
           marker_name=""
           target_hhmm=""
           sh_date="$(TZ='Asia/Shanghai' date '+%Y%m%d')"
 
           case "${EVENT_SCHEDULE:-}" in
-            "30 22 * * 1-5"|"0 23 * * 1-5"|"30 23 * * 1-5"|"0 0 * * 1-5"|"30 0 * * 1-5")
+            "30-59/10 22 * * 0-4"|"*/10 23 * * 0-4"|"*/10 0 * * 1-5")
               slot="morning"
               marker_name="daily-stock-analysis-${sh_date}-morning"
               target_hhmm="07:30"
               ;;
-            "0 9 * * 1-5"|"30 9 * * 1-5"|"0 10 * * 1-5"|"30 10 * * 1-5")
+            "*/10 9 * * 1-5"|"*/10 10 * * 1-5")
               slot="evening"
               marker_name="daily-stock-analysis-${sh_date}-evening"
               target_hhmm="18:00"
               ;;
           esac
 
-          if [ "$EVENT_NAME" = "schedule" ] && [ -n "$marker_name" ]; then
-            if [ -n "$target_hhmm" ]; then
+          echo "run_slot=$slot" >> "$GITHUB_OUTPUT"
+          echo "marker_name=$marker_name" >> "$GITHUB_OUTPUT"
+          echo "target_hhmm=$target_hhmm" >> "$GITHUB_OUTPUT"
+          echo "定时槽位: $slot; target=$target_hhmm; marker=$marker_name"
+      
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 安装依赖
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 创建必要目录
+        run: |
+          mkdir -p data logs reports
+
+      - name: 等待目标时间并防重
+        id: execution_guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          MARKER_NAME: ${{ steps.schedule_guard.outputs.marker_name }}
+          TARGET_HHMM: ${{ steps.schedule_guard.outputs.target_hhmm }}
+        run: |
+          set -euo pipefail
+          should_run="true"
+
+          if [ "$EVENT_NAME" = "schedule" ] && [ -n "$MARKER_NAME" ]; then
+            if [ -n "$TARGET_HHMM" ]; then
               now_epoch="$(TZ='Asia/Shanghai' date '+%s')"
-              target_epoch="$(TZ='Asia/Shanghai' date -d "$(TZ='Asia/Shanghai' date '+%Y-%m-%d') $target_hhmm:00" '+%s')"
+              target_epoch="$(TZ='Asia/Shanghai' date -d "$(TZ='Asia/Shanghai' date '+%Y-%m-%d') $TARGET_HHMM:00" '+%s')"
               wait_seconds=$((target_epoch - now_epoch))
               if [ "$wait_seconds" -gt 0 ]; then
-                echo "当前早于目标时间 $target_hhmm，北京时间等待 ${wait_seconds}s 后再检查/运行。"
+                echo "依赖已就绪，当前早于目标时间 $TARGET_HHMM，北京时间等待 ${wait_seconds}s 后运行。"
                 sleep "$wait_seconds"
               fi
             fi
@@ -103,40 +127,19 @@ jobs:
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
                 "https://api.github.com/repos/$REPO/actions/artifacts?per_page=100" \
-              | python3 -c 'import json, sys; target = sys.argv[1]; data = json.load(sys.stdin); print("yes" if any(a.get("name") == target and not a.get("expired") for a in data.get("artifacts", [])) else "no")' "$marker_name"
+              | python3 -c 'import json, sys; target = sys.argv[1]; data = json.load(sys.stdin); print("yes" if any(a.get("name") == target and not a.get("expired") for a in data.get("artifacts", [])) else "no")' "$MARKER_NAME"
             )"
             if [ "$marker_exists" = "yes" ]; then
               should_run="false"
-              echo "已存在本时段成功标记：$marker_name，本次跳过，避免重复推送。"
+              echo "已存在本时段成功标记：$MARKER_NAME，本次跳过，避免重复推送。"
             fi
           fi
 
           echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
-          echo "run_slot=$slot" >> "$GITHUB_OUTPUT"
-          echo "marker_name=$marker_name" >> "$GITHUB_OUTPUT"
-          echo "target_hhmm=$target_hhmm" >> "$GITHUB_OUTPUT"
-          echo "定时槽位: $slot; target=$target_hhmm; should_run=$should_run; marker=$marker_name"
-      
-      - name: 设置 Python 环境
-        if: steps.schedule_guard.outputs.should_run == 'true'
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-      
-      - name: 安装依赖
-        if: steps.schedule_guard.outputs.should_run == 'true'
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-      
-      - name: 创建必要目录
-        if: steps.schedule_guard.outputs.should_run == 'true'
-        run: |
-          mkdir -p data logs reports
+          echo "最终执行判断: should_run=$should_run; marker=$MARKER_NAME; target=$TARGET_HHMM"
       
       - name: 执行股票分析
-        if: steps.schedule_guard.outputs.should_run == 'true'
+        if: steps.execution_guard.outputs.should_run == 'true'
         env:
           # ==========================================
           # AI 配置
@@ -599,7 +602,7 @@ jobs:
       
       - name: 上传分析报告
         uses: actions/upload-artifact@v6
-        if: always() && steps.schedule_guard.outputs.should_run == 'true'
+        if: always() && steps.execution_guard.outputs.should_run == 'true'
         with:
           name: analysis-reports-${{ github.run_number }}
           path: |
@@ -609,14 +612,14 @@ jobs:
 
       - name: 上传定时成功标记
         uses: actions/upload-artifact@v6
-        if: success() && steps.schedule_guard.outputs.should_run == 'true' && steps.schedule_guard.outputs.marker_name != ''
+        if: success() && steps.execution_guard.outputs.should_run == 'true' && steps.schedule_guard.outputs.marker_name != ''
         with:
           name: ${{ steps.schedule_guard.outputs.marker_name }}
           path: .github/workflows/00-daily-analysis.yml
           retention-days: 7
       
       - name: 显示运行结果
-        if: always() && steps.schedule_guard.outputs.should_run == 'true'
+        if: always() && steps.execution_guard.outputs.should_run == 'true'
         run: |
           echo ""
           echo "=========================================="
