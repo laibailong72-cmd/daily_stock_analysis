@@ -31,6 +31,15 @@ on:
         required: false
         default: false
         type: boolean
+      schedule_slot:
+        description: '定时槽位标记（外部精准触发用）'
+        required: false
+        default: 'manual'
+        type: choice
+        options:
+          - manual
+          - morning
+          - evening
 
 # 并发控制：同一时间只运行一个分析任务
 concurrency:
@@ -59,6 +68,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
+          SCHEDULE_SLOT_INPUT: ${{ github.event.inputs.schedule_slot || 'manual' }}
         run: |
           set -euo pipefail
           slot="manual"
@@ -78,6 +88,21 @@ jobs:
               target_hhmm="18:00"
               ;;
           esac
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "${SCHEDULE_SLOT_INPUT:-manual}" in
+              morning)
+                slot="morning"
+                marker_name="daily-stock-analysis-${sh_date}-morning"
+                target_hhmm="07:30"
+                ;;
+              evening)
+                slot="evening"
+                marker_name="daily-stock-analysis-${sh_date}-evening"
+                target_hhmm="18:00"
+                ;;
+            esac
+          fi
 
           echo "run_slot=$slot" >> "$GITHUB_OUTPUT"
           echo "marker_name=$marker_name" >> "$GITHUB_OUTPUT"

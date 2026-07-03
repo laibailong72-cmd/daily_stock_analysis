@@ -1315,22 +1315,25 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         """Build LLM output sections according to market data capabilities."""
         if review_language == "en":
             if self.profile.has_market_stats and self.profile.has_sector_rankings:
-                return """### 3. Fund Flows
+                return """### 3. Main Themes
+(Rank the top 3 themes by strength, sustainability, and risk. For each theme, explain what confirms continuation and what invalidates it.)
+
+### 4. Fund Flows
 (Interpret what turnover, participation, and flow signals imply.)
 
-### 4. Sector Highlights
+### 5. Sector Highlights
 (Distinguish industry-sector moves from concept/theme moves, then analyze drivers and persistence.)
 
-### 5. AI Stock Selection Radar
-(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Include the theme, reason, trigger condition, invalidation condition, and risk note for each candidate.)
+### 6. AI Stock Selection Radar
+(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Use at most 3 candidates per list. Include theme, observation reason, trigger condition, invalidation condition, and risk note. Do not invent exact stock prices or moving-average values when individual quote data is not supplied.)
 
-### 6. Outlook
+### 7. Tomorrow's Watch Plan
 (Provide the near-term outlook based on price action and news.)
 
-### 7. Risk Alerts
+### 8. Risk Alerts
 (List the main risks to monitor.)
 
-### 8. Strategy Plan
+### 9. Strategy Plan
 (Provide an offensive/balanced/defensive stance, a position-sizing guideline, one invalidation trigger, and end with "For reference only, not investment advice.")"""
 
             section_number = 3
@@ -1345,10 +1348,10 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 section_number += 1
             sections.extend([
                 f"""### {section_number}. AI Stock Selection Radar
-(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Include the theme, reason, trigger condition, invalidation condition, and risk note for each candidate.)""",
+(For the current market only, provide three separate lists: daily hot stocks, high-potential stocks, and dip-buy/reversal watch signals. Use at most 3 candidates per list. Include theme, observation reason, trigger condition, invalidation condition, and risk note. Do not invent exact stock prices or moving-average values when individual quote data is not supplied.)""",
                 f"""### {section_number + 1}. News Catalysts
 (Connect recent news to index price action and macro/external-market clues. Do not infer unsupported breadth, fund-flow, or sector-ranking data.)""",
-                f"""### {section_number + 2}. Outlook
+                f"""### {section_number + 2}. Tomorrow's Watch Plan
 (Provide the near-term outlook based on index price action and the available news.)""",
                 f"""### {section_number + 3}. Risk Alerts
 (List the main risks to monitor.)""",
@@ -1362,7 +1365,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 （区分行业板块与概念题材，分析领涨/领跌背后的逻辑、持续性和是否形成主线）
 
 ### 四、AI选股雷达
-（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每个候选必须包含所属主线、入选理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入）
+（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多3个；每个候选必须包含所属主线、观察理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入，不得编造具体股价/均线数值）
 
 ### 五、资金与情绪
 （解读成交额、涨跌停结构、市场宽度和风险偏好）
@@ -1370,8 +1373,8 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 ### 六、消息催化
 （结合近三日新闻，提炼真正影响明日交易的催化或扰动）
 
-### 七、明日交易计划
-（给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）
+### 七、明日观察计划
+（给出进攻/均衡/防守结论、观察方向、回避方向、触发条件和失效条件；目标是帮助快速理解市场，不直接给买入指令）
 
 ### 八、风险提示
 （列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）"""
@@ -1389,7 +1392,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             add_section("板块主线", "（仅分析已提供的行业板块与概念题材榜单，不扩展未提供的数据）")
         add_section(
             "AI选股雷达",
-            "（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每个候选必须包含所属主线、入选理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”）",
+            "（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多3个；每个候选必须包含所属主线、观察理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得编造具体股价/均线数值）",
         )
         if self.profile.has_market_stats:
             add_section("资金与情绪", "（仅解读已提供的成交额、涨跌停结构、市场宽度和风险偏好数据）")
@@ -1397,7 +1400,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             "消息催化",
             "（结合近三日新闻和指数表现，提炼真正影响明日交易的催化或扰动；不要推断未提供的资金流、市场宽度或板块榜）",
         )
-        add_section("明日交易计划", "（给出进攻/均衡/防守结论、仓位区间、关注方向、回避方向和一个触发失效条件）")
+        add_section("明日观察计划", "（给出进攻/均衡/防守结论、观察方向、回避方向、触发条件和失效条件；目标是帮助快速理解市场，不直接给买入指令）")
         add_section("风险提示", "（列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）")
         return "\n\n".join(sections)
 
@@ -1658,6 +1661,11 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
 - No code blocks
 - Use emoji sparingly in headings (at most one per heading)
 - The entire fixed shell, headings, guidance, and conclusion must be in English
+- Start with a short "Today at a Glance" block of 3 bullets: market regime, strongest theme, watch/avoid.
+- Keep the report compact and scannable. Prefer short bullets over long paragraphs.
+- If no market news is provided, explicitly say "No verified news catalyst provided" and do not infer unnamed macro events.
+- Never invent exact individual-stock prices, support levels, moving-average values, or indicator readings unless those exact stock data points are present in the input.
+- Treat all stock names as an observation pool for faster understanding, not as buy recommendations.
 {data_boundary_requirement}
 
 ---
@@ -1691,6 +1699,9 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
 
 ## {report_title}
 
+### Today at a Glance
+(- Market regime; strongest theme; watch/avoid.)
+
 ### 1. Market Summary
 ({market_summary_hint})
 
@@ -1714,6 +1725,11 @@ Output the report content directly, no extra commentary.
 - emoji 仅在标题处少量使用（每个标题最多1个）
 - {workflow_hint}
 - 不要重复列出已由系统注入的表格数据；正文负责解释表格背后的含义
+- 开头必须有“今日速读”三条：市场状态、最强主线、观察/回避方向。
+- 内容要适合飞书快速阅读：多用短句和要点，避免长篇段落。
+- 如果市场新闻为空，必须明确写“暂无已验证消息催化”，不得反推出未给出的宏观事件。
+- 没有个股行情数据时，禁止编造具体股价、支撑价、均线数值、MACD 等指标数值；只能写“站上短期均线”“突破前高”“回踩支撑企稳”等相对触发条件。
+- AI选股池仅用于帮助快速观察和理解市场，不得直接写成买入指令。
 {data_boundary_requirement}
 
 ---
@@ -1746,6 +1762,11 @@ Output the report content directly, no extra commentary.
 # 输出格式模板（请严格按此格式输出）
 
 ## {zh_report_title}
+
+### 今日速读
+- 市场状态：
+- 最强主线：
+- 观察/回避：
 
 > 一句话给出今日市场状态、核心矛盾和明日优先观察方向。
 
