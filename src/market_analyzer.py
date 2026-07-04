@@ -13,6 +13,7 @@
 import logging
 import re
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from inspect import getattr_static
@@ -115,6 +116,7 @@ class MarketOverview:
     bottom_sectors: List[Dict] = field(default_factory=list)  # 跌幅前5板块
     top_concepts: List[Dict] = field(default_factory=list)    # 涨幅前5概念
     bottom_concepts: List[Dict] = field(default_factory=list) # 跌幅前5概念
+    limit_up_pool: List[Dict] = field(default_factory=list)   # 当日涨停板全量观察池
 
 
 @dataclass
@@ -449,8 +451,12 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         if self.profile.has_sector_rankings:
             self._get_sector_rankings(overview)
             self._get_concept_rankings(overview)
+
+        # 4. A 股涨停板全量观察池：仅作为当日报告筛选输入，不写回固定 STOCK_LIST。
+        if self.region == "cn":
+            self._get_limit_up_pool(overview)
         
-        # 4. 获取北向资金（可选）
+        # 5. 获取北向资金（可选）
         # self._get_north_flow(overview)
         
         return overview
@@ -575,6 +581,21 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
         except Exception as e:
             logger.warning("[大盘] %s action=get_concept_rankings status=failed error=%s", self._log_context(), e)
+
+    def _get_limit_up_pool(self, overview: MarketOverview) -> None:
+        """获取当日 A 股涨停池，作为盘后漏斗筛选输入。"""
+        try:
+            logger.info("[大盘] %s action=get_limit_up_pool status=start", self._log_context())
+            pool = self.data_manager.get_limit_up_pool(n=120)
+            overview.limit_up_pool = list(pool or [])
+            logger.info(
+                "[大盘] %s action=get_limit_up_pool status=success count=%d",
+                self._log_context(),
+                len(overview.limit_up_pool),
+            )
+        except Exception as e:
+            overview.limit_up_pool = []
+            logger.warning("[大盘] %s action=get_limit_up_pool status=failed error=%s", self._log_context(), e)
     
     # def _get_north_flow(self, overview: MarketOverview):
     #     """获取北向资金流入"""
@@ -812,6 +833,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 "top": list(overview.top_concepts or []),
                 "bottom": list(overview.bottom_concepts or []),
             },
+            "limit_up_pool": list(overview.limit_up_pool or []),
             "news": [self._normalize_news_item(item) for item in (news or [])[:8]],
             "sections": sections,
             "markdown_report": report,
@@ -1150,6 +1172,68 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             append_ranking("#### 概念板块领跌 Top 5", "概念板块", overview.bottom_concepts)
         return "\n".join(lines)
 
+    def _format_limit_up_pool_summary(self, pool: List[Dict], *, limit: int = 80) -> str:
+        """Format A-share limit-up pool as compact prompt input."""
+        rows = [item for item in (pool or []) if isinstance(item, dict)]
+        if not rows:
+            return "暂无涨停池数据。"
+
+        industry_counts = Counter(
+            str(item.get("industry") or "未分类").strip() or "未分类"
+            for item in rows
+        )
+        top_industries = "、".join(
+            f"{name}({count})"
+            for name, count in industry_counts.most_common(8)
+        )
+        lines = [
+            f"- 今日涨停池数量：{len(rows)} 只",
+            f"- 行业分布 Top：{top_industries or '暂无'}",
+            "- 说明：这是当日临时观察池，不会写回固定 STOCK_LIST。",
+            "",
+            "| 序号 | 代码 | 名称 | 行业 | 连板/统计 | 首封 | 末封 | 炸板 | 换手率 | 封板资金 | 成交额 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for index, item in enumerate(rows[:limit], 1):
+            code = str(item.get("code") or "-").strip() or "-"
+            name = str(item.get("name") or "-").strip() or "-"
+            industry = str(item.get("industry") or "-").strip() or "-"
+            stat = str(item.get("limit_stat") or "").strip()
+            boards = item.get("consecutive_boards")
+            board_text = stat or (f"{boards}板" if boards not in (None, "", 0) else "-")
+            lines.append(
+                "| {index} | {code} | {name} | {industry} | {board_text} | {first} | {last} | {breaks} | {turnover} | {seal} | {amount} |".format(
+                    index=index,
+                    code=code,
+                    name=name,
+                    industry=industry,
+                    board_text=board_text,
+                    first=str(item.get("first_limit_time") or "-"),
+                    last=str(item.get("last_limit_time") or "-"),
+                    breaks=item.get("break_count") if item.get("break_count") is not None else "-",
+                    turnover=self._format_optional_pct(item.get("turnover_rate")),
+                    seal=self._format_money_value(item.get("seal_amount")),
+                    amount=self._format_money_value(item.get("amount")),
+                )
+            )
+        if len(rows) > limit:
+            lines.append(f"- 其余 {len(rows) - limit} 只已省略，优先分析上表中连板更高、封板更早的个股。")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_money_value(value: Any) -> str:
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            return "N/A"
+        if numeric_value == 0:
+            return "N/A"
+        if abs(numeric_value) >= 1e8:
+            return f"{numeric_value / 1e8:.2f}亿"
+        if abs(numeric_value) >= 1e4:
+            return f"{numeric_value / 1e4:.0f}万"
+        return f"{numeric_value:.0f}"
+
     def _build_news_block(self, news: List) -> str:
         """Build a compact source-aware news catalyst list for the rendered report."""
         if not news:
@@ -1364,19 +1448,22 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             return """### 三、板块主线
 （区分行业板块与概念题材，分析领涨/领跌背后的逻辑、持续性和是否形成主线）
 
-### 四、AI选股雷达
+### 四、涨停板漏斗筛选
+（仅 A 股使用：先列出今日涨停板全量池的行业分布和核心题材，再按“涨停逻辑 -> 题材热点 -> 多头趋势/突破平台/资金封板 -> 利空与分时换手风险”逐层剔除；最后只给 1-2 只“次日重点候选”，必须写触发条件、失效条件、仓位纪律和风险提示，不得写成无条件买入）
+
+### 五、AI选股雷达
 （当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多3个；每个候选必须包含所属主线、观察理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得输出无条件买入，不得编造具体股价/均线数值）
 
-### 五、资金与情绪
+### 六、资金与情绪
 （解读成交额、涨跌停结构、市场宽度和风险偏好）
 
-### 六、消息催化
+### 七、消息催化
 （结合近三日新闻，提炼真正影响明日交易的催化或扰动）
 
-### 七、明日观察计划
+### 八、明日观察计划
 （给出进攻/均衡/防守结论、观察方向、回避方向、触发条件和失效条件；目标是帮助快速理解市场，不直接给买入指令）
 
-### 八、风险提示
+### 九、风险提示
 （列出需要关注的风险点；最后补充“建议仅供参考，不构成投资建议”。）"""
 
         numerals = ["一", "二", "三", "四", "五", "六", "七", "八"]
@@ -1390,6 +1477,11 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
         if self.profile.has_sector_rankings:
             add_section("板块主线", "（仅分析已提供的行业板块与概念题材榜单，不扩展未提供的数据）")
+        if self.region == "cn":
+            add_section(
+                "涨停板漏斗筛选",
+                "（把今日涨停板作为临时观察池，按涨停逻辑、题材热点、多头趋势/突破平台、资金封板、利空/分时/换手风险逐层筛选；最终只给 1-2 只“次日重点候选”，必须包含触发条件和失效条件，不得写成无条件买入）",
+            )
         add_section(
             "AI选股雷达",
             "（当前市场单独输出三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多3个；每个候选必须包含所属主线、观察理由、触发条件、失效条件和风险提示；没有个股行情数据时必须标注为“观察池，需量价确认”，不得编造具体股价/均线数值）",
@@ -1524,6 +1616,39 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 - 只观察回踩支撑企稳并重新放量的候选。
 """
 
+    def _build_limit_up_funnel_template_block(self, overview: MarketOverview) -> str:
+        """Build fallback limit-up funnel section for A-share template reviews."""
+        if self.region != "cn":
+            return ""
+        rows = [item for item in (overview.limit_up_pool or []) if isinstance(item, dict)]
+        if not rows:
+            return """### 涨停板漏斗筛选
+- 今日暂无涨停池数据，无法执行“涨停逻辑 -> 题材热点 -> 趋势资金 -> 风险排除”的漏斗筛选。
+- 次日重点候选：暂无；等待涨停池和量价数据恢复后再筛选。
+"""
+        top_rows = rows[:5]
+        industry_counts = Counter(
+            str(item.get("industry") or "未分类").strip() or "未分类"
+            for item in rows
+        )
+        pool_text = "、".join(
+            f"{item.get('name') or '-'}({item.get('code') or '-'})"
+            for item in top_rows
+        )
+        industry_text = "、".join(
+            f"{name}({count})"
+            for name, count in industry_counts.most_common(5)
+        )
+        return f"""### 涨停板漏斗筛选
+> 当日涨停板为临时观察池，不写回固定自选股。以下为模板筛选结果，需结合实时分时、盘口和消息复核。
+
+- 涨停池概况：共 {len(rows)} 只；行业集中在 {industry_text or "暂无分类"}。
+- 初筛观察：{pool_text}。
+- 继续筛选标准：优先保留符合当下题材热点、多头趋势、突破平台、封板资金强、近一年涨幅不过大的个股。
+- 风险排除：剔除明显利空、炸板频繁、高换手分歧过大、封板资金弱或高位过热的个股。
+- 次日重点候选：暂无自动定论；等待 AI 报告或人工复核后，只从通过漏斗的个股中选择 1-2 只，并设置触发条件和失效条件。
+"""
+
     def _build_review_prompt(self, overview: MarketOverview, news: List) -> str:
         """构建复盘报告 Prompt"""
         review_language = self._get_review_language()
@@ -1539,6 +1664,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         bottom_sectors_text = self._format_ranking_summary(overview.bottom_sectors)
         top_concepts_text = self._format_ranking_summary(overview.top_concepts)
         bottom_concepts_text = self._format_ranking_summary(overview.bottom_concepts)
+        limit_up_pool_text = self._format_limit_up_pool_summary(overview.limit_up_pool)
         
         # 新闻信息 - 支持 SearchResult 对象或字典
         news_text = ""
@@ -1594,6 +1720,19 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
 行业领跌: {bottom_sectors_text if bottom_sectors_text else "暂无数据"}
 概念领涨: {top_concepts_text if top_concepts_text else "暂无数据"}
 概念领跌: {bottom_concepts_text if bottom_concepts_text else "暂无数据"}"""
+
+            limit_up_block = ""
+            if self.region == "cn":
+                limit_up_block = f"""## 涨停板全量观察池
+{limit_up_pool_text}
+
+## 涨停板漏斗筛选规则
+- 第0层：把今日全部涨停板视为“当日临时自选池”，用于盘后筛选；不要写成永久自选股配置变更。
+- 第1层：逐只解释涨停逻辑，优先用行业/概念/政策/业绩/订单/资金/情绪线索；证据不足必须写“逻辑待验证”。
+- 第2层：只保留符合当下题材热点、行业榜或概念榜主线的个股，其余剔除。
+- 第3层：继续筛选多头趋势、突破平台、资金或封板强、近一年涨幅不过大的个股；缺少年内涨幅或趋势数据时必须标注“需日线复核”，不得编造数值。
+- 第4层：排除存在明显利空、炸板频繁、高换手分歧过大、封板资金弱或高位过热的个股；如未提供完整涨停分时图，只能根据首封/末封/炸板/封板资金判断，并标注“需分时复核”。
+- 最终只输出 1-2 只“次日重点候选”，不是无条件买入；必须给出开盘/盘中触发条件、失效条件、仓位纪律和风险提示。"""
 
             data_limit_lines = []
             if not self.profile.has_market_stats:
@@ -1745,6 +1884,8 @@ Output the report content directly, no extra commentary.
 {stats_block}
 
 {sector_block}
+
+{limit_up_block}
 
 {data_limits_block}
 
@@ -1902,6 +2043,7 @@ Market conditions can change quickly. The data above is for reference only and d
             else ""
         )
         ai_stock_selection_block = self._build_ai_stock_selection_template_block(template_language)
+        limit_up_funnel_block = self._build_limit_up_funnel_template_block(overview)
         funds_section = (
             """
 ### 资金与情绪
@@ -1920,6 +2062,7 @@ Market conditions can change quickly. The data above is for reference only and d
 ### 二、指数结构
 {indices_block or indices_text or "暂无指数数据。"}
 {sector_section}
+{limit_up_funnel_block}
 {ai_stock_selection_block}
 
 {funds_section}
