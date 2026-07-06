@@ -53,6 +53,8 @@ permissions:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Shanghai
     # 兼容误将 STOCK_LIST 配到同名 Environment variables 的场景；
     # 推荐位置仍是 Settings -> Secrets and variables -> Actions -> Repository variables。
     environment: STOCK_LIST
@@ -609,7 +611,7 @@ jobs:
           
           # 构建命令行参数
           FORCE_RUN_ARG=""
-          if [ "${{ github.event.inputs.force_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.force_run }}" = "true" ] || [ "${{ steps.schedule_guard.outputs.run_slot }}" = "morning" ]; then
             FORCE_RUN_ARG="--force-run"
             echo "⚡ 已启用强制运行模式（跳过交易日检查）"
           fi
@@ -621,6 +623,19 @@ jobs:
             python main.py --no-market-review $FORCE_RUN_ARG
           else
             python main.py $FORCE_RUN_ARG
+          fi
+
+      - name: 检查是否生成报告
+        id: report_check
+        if: always() && steps.execution_guard.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          if [ -d "reports" ] && [ "$(find reports -type f | head -1)" ]; then
+            echo "has_report=true" >> "$GITHUB_OUTPUT"
+            echo "已生成报告文件。"
+          else
+            echo "has_report=false" >> "$GITHUB_OUTPUT"
+            echo "未生成报告文件，本次不写入定时成功标记，允许后续触发重试。"
           fi
       
       - name: 上传分析报告
@@ -635,7 +650,7 @@ jobs:
 
       - name: 上传定时成功标记
         uses: actions/upload-artifact@v6
-        if: success() && steps.execution_guard.outputs.should_run == 'true' && steps.schedule_guard.outputs.marker_name != ''
+        if: success() && steps.execution_guard.outputs.should_run == 'true' && steps.report_check.outputs.has_report == 'true' && steps.schedule_guard.outputs.marker_name != ''
         with:
           name: ${{ steps.schedule_guard.outputs.marker_name }}
           path: .github/workflows/00-daily-analysis.yml
