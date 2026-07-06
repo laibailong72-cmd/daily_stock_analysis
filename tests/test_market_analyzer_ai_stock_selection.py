@@ -42,6 +42,11 @@ class MarketAnalyzerAIStockSelectionTestCase(unittest.TestCase):
         prompt = analyzer._build_review_prompt(self._overview(), [])
 
         self.assertIn("AI选股雷达", prompt)
+        self.assertIn("美股早报", prompt)
+        self.assertIn("上一交易日", prompt)
+        self.assertIn("为什么现在关注", prompt)
+        self.assertIn("次日验证条件", prompt)
+        self.assertIn("禁止编造具体股价", prompt)
         self.assertIn("每日热门股", prompt)
         self.assertIn("有潜力的股票", prompt)
         self.assertIn("可抄底观察信号", prompt)
@@ -57,6 +62,8 @@ class MarketAnalyzerAIStockSelectionTestCase(unittest.TestCase):
 
         self.assertIn("涨停板全量观察池", prompt)
         self.assertIn("涨停板漏斗筛选", prompt)
+        self.assertIn("留下/剔除/待复核", prompt)
+        self.assertIn("证据/判断/动作", prompt)
         self.assertIn("当日临时自选池", prompt)
         self.assertIn("次日重点候选", prompt)
         self.assertIn("兆易创新", prompt)

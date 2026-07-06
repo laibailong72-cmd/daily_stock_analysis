@@ -132,13 +132,39 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
+          FORCE_RUN_INPUT: ${{ github.event.inputs.force_run || 'false' }}
+          RUN_SLOT: ${{ steps.schedule_guard.outputs.run_slot }}
           MARKER_NAME: ${{ steps.schedule_guard.outputs.marker_name }}
           TARGET_HHMM: ${{ steps.schedule_guard.outputs.target_hhmm }}
         run: |
           set -euo pipefail
           should_run="true"
 
-          if [ "$EVENT_NAME" = "schedule" ] && [ -n "$MARKER_NAME" ]; then
+          if [ -n "$MARKER_NAME" ]; then
+            if [ "${FORCE_RUN_INPUT:-false}" != "true" ]; then
+              now_minutes="$(TZ='Asia/Shanghai' date '+%H %M' | awk '{print ($1 * 60) + $2}')"
+              case "${RUN_SLOT:-manual}" in
+                morning)
+                  window_start=$((6 * 60 + 30))
+                  window_end=$((8 * 60 + 50))
+                  ;;
+                evening)
+                  window_start=$((17 * 60))
+                  window_end=$((18 * 60 + 50))
+                  ;;
+                *)
+                  window_start=0
+                  window_end=1439
+                  ;;
+              esac
+              if [ "$now_minutes" -lt "$window_start" ] || [ "$now_minutes" -gt "$window_end" ]; then
+                should_run="false"
+                echo "当前不在 ${RUN_SLOT:-manual} 允许推送窗口内，本次跳过，避免错误时间推送。"
+              fi
+            fi
+          fi
+
+          if [ "$should_run" = "true" ] && [ "$EVENT_NAME" = "schedule" ] && [ -n "$MARKER_NAME" ]; then
             if [ -n "$TARGET_HHMM" ]; then
               now_epoch="$(TZ='Asia/Shanghai' date '+%s')"
               target_epoch="$(TZ='Asia/Shanghai' date -d "$(TZ='Asia/Shanghai' date '+%Y-%m-%d') $TARGET_HHMM:00" '+%s')"
@@ -148,7 +174,9 @@ jobs:
                 sleep "$wait_seconds"
               fi
             fi
+          fi
 
+          if [ "$should_run" = "true" ] && [ -n "$MARKER_NAME" ] && [ "${FORCE_RUN_INPUT:-false}" != "true" ]; then
             marker_exists="$(
               curl -fsSL \
                 -H "Authorization: Bearer $GH_TOKEN" \
