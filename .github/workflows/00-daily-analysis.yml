@@ -3,7 +3,7 @@ name: 每日股票分析
 on:
   # 定时触发：
   # - 早报目标：北京时间 07:30，美股大盘；提前触发会等到 07:30，延迟触发则立即跑
-  # - 晚报目标：北京时间 18:00，A 股大盘 + 自选股；提前触发会等到 18:00，延迟触发则立即跑
+  # - 晚报目标：北京时间 18:00，A 股大盘 + 涨停漏斗 + AI选股；提前触发会等到 18:00，延迟触发则立即跑
   # 多个触发点用于对冲 GitHub Actions schedule 偶发延迟/漏触发；下方 guard 会按日期和时段去重。
   schedule:
     # 北京时间周一至周五 06:30-08:50 之间多次尝试，目标 07:30
@@ -563,7 +563,7 @@ jobs:
               EFFECTIVE_MARKET_REVIEW_REGION="us"
               ;;
             evening)
-              MODE="full"
+              MODE="market-only"
               EFFECTIVE_MARKET_REVIEW_REGION="cn"
               ;;
           esac
