@@ -164,7 +164,7 @@ jobs:
             fi
           fi
 
-          if [ "$should_run" = "true" ] && [ "$EVENT_NAME" = "schedule" ] && [ -n "$MARKER_NAME" ]; then
+          if [ "$should_run" = "true" ] && [ -n "$MARKER_NAME" ]; then
             if [ -n "$TARGET_HHMM" ]; then
               now_epoch="$(TZ='Asia/Shanghai' date '+%s')"
               target_epoch="$(TZ='Asia/Shanghai' date -d "$(TZ='Asia/Shanghai' date '+%Y-%m-%d') $TARGET_HHMM:00" '+%s')"
