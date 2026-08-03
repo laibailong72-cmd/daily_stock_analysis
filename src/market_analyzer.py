@@ -55,9 +55,18 @@ _CHINESE_SECTION_PATTERNS = {
 
 
 _US_AI_STOCK_POOL = (
-    "Apple(AAPL)、Nvidia(NVDA)、Microsoft(MSFT)、AMD(AMD)、Broadcom(AVGO)、"
-    "TSMC(TSM)、Alphabet(GOOGL/GOOG)、Meta(META)、Amazon(AMZN)、Tesla(TSLA)、"
-    "Palantir(PLTR)、Super Micro Computer(SMCI)"
+    "核心权重: Apple(AAPL)、Microsoft(MSFT)、Alphabet(GOOGL/GOOG)、Amazon(AMZN)、"
+    "Meta(META)、Tesla(TSLA); "
+    "AI算力/芯片: Nvidia(NVDA)、AMD(AMD)、Broadcom(AVGO)、TSMC(TSM)、"
+    "Marvell(MRVL)、Micron(MU)、Arm(ARM)、ASML(ASML)、Applied Materials(AMAT)、"
+    "Lam Research(LRCX)、KLA(KLAC)、Qualcomm(QCOM); "
+    "服务器/电力/网络: Super Micro Computer(SMCI)、Dell(DELL)、Arista(ANET)、"
+    "Vertiv(VRT)、Eaton(ETN)、GE Vernova(GEV); "
+    "软件/AI应用: Palantir(PLTR)、ServiceNow(NOW)、Oracle(ORCL)、"
+    "Salesforce(CRM)、Adobe(ADBE)、Snowflake(SNOW)、CrowdStrike(CRWD)、"
+    "Datadog(DDOG); "
+    "消费/金融/防守: Netflix(NFLX)、Costco(COST)、Walmart(WMT)、"
+    "JPMorgan(JPM)、Visa(V)、Eli Lilly(LLY)、UnitedHealth(UNH)"
 )
 
 _CN_AI_STOCK_POOL = (
@@ -1446,10 +1455,10 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
         if self.region == "us":
             return """### 三、核心趋势与热门权重
-（用“上一交易日/昨夜美股”的口径说明核心趋势：大型科技、AI算力、半导体、苹果链、英伟达链、云计算、利率/VIX/美元等；必须点名 Apple、Nvidia、Microsoft、AMD、Broadcom、Meta、Amazon、Tesla、Palantir、SMCI 中与当日主线相关的代表；明确哪些只是指数层面的推断，哪些有新闻或数据支持；控制在 6 条以内）
+（用“上一交易日/昨夜美股”的口径说明核心趋势：大型科技、AI算力、半导体设备、服务器/电力、企业软件、消费/金融/医药防守、利率/VIX/美元等；必须区分“指数权重驱动”“AI硬件驱动”“非科技扩散/防守轮动”；明确哪些只是指数层面的推断，哪些有新闻或数据支持；控制在 6 条以内）
 
 ### 四、AI选股雷达
-（固定输出一张表，三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多2个；列为“类别/股票/主线/证据/触发/失效/风险”；候选优先从美股核心观察池选择；没有个股行情数据时不得写具体价格、跌幅百分比、均线数值，只能写相对条件；若抄底条件不成立，必须写“无有效抄底信号”）
+（固定输出一张表，三类：每日热门股、有潜力的股票、可抄底观察信号；每类最多3个；列为“类别/股票/主线/篮子/证据/触发/失效/风险”；候选必须从不同篮子中选，至少覆盖 3 个篮子：核心权重、AI算力/芯片、服务器/电力/网络、软件/AI应用、消费/金融/防守；不得连续只给 Apple/Nvidia/Microsoft/AMD/Broadcom/Meta/Tesla 这类少数热门股；没有个股行情数据时不得写具体价格、跌幅百分比、均线数值，只能写相对条件；若抄底条件不成立，必须写“无有效抄底信号”）
 
 ### 五、明日观察计划
 （给出进攻/均衡/防守结论；只列 3 条：优先观察、暂时回避、开盘后确认/失效；目标是帮助快速观察市场，不直接给买入指令）
@@ -1515,10 +1524,11 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             if self.region == "us":
                 return f"""## AI Stock Selection Radar Guidance
 - Current market scope: US only. Do not mix in A-share candidates.
-- Focus themes: AI infrastructure, semiconductors, cloud platforms, consumer technology, mega-cap technology leadership, and high-beta AI application names.
+- Focus themes: mega-cap leadership, AI compute, semiconductors, semiconductor equipment, servers/networking/power, enterprise AI software, consumer/financial/defensive rotation.
 - Reference pool for screening, not automatic recommendations: {_US_AI_STOCK_POOL}.
+- Use multiple baskets instead of repeating the same mega-cap technology names every day.
 - In the "AI Stock Selection Radar" section, output exactly three sublists: "Daily Hot Stocks", "High-Potential Stocks", and "Dip-Buy/Reversal Watch".
-- Each candidate must include theme, reason, trigger condition, invalidation condition, and a risk note. If individual-stock quote data was not supplied, mark it as a watchlist idea requiring price/volume confirmation."""
+- Each candidate must include theme, basket, reason, trigger condition, invalidation condition, and a risk note. Cover at least three different baskets unless the input clearly supports only one theme. If individual-stock quote data was not supplied, mark it as a watchlist idea requiring price/volume confirmation."""
             if self.region == "cn":
                 return f"""## AI Stock Selection Radar Guidance
 - Current market scope: A-share only. Do not mix in US candidates.
@@ -1534,11 +1544,19 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             return f"""## AI选股雷达指引
 - 当前市场范围：只分析美股，不混入 A 股候选。
 - 这是北京时间早间美股早报，分析对象是“上一交易日/昨夜美股”，不要写成 A 股盘后复盘。
-- 必须覆盖 Apple(AAPL)、Nvidia(NVDA)、Microsoft(MSFT)、AMD(AMD)、Broadcom(AVGO)、Meta(META)、Amazon(AMZN)、Tesla(TSLA)、Palantir(PLTR)、Super Micro Computer(SMCI) 等热门权重和 AI/算力、半导体、云计算、消费科技、高弹性 AI 应用主线。
 - 候选参考池仅用于筛选，不代表自动推荐：{_US_AI_STOCK_POOL}。
+- 美股 AI 选股不能每天只围绕同一批大科技；必须从多篮子中轮动筛选。
+- 篮子定义：
+  1. 核心权重：AAPL/MSFT/GOOGL/AMZN/META/TSLA。
+  2. AI算力/芯片：NVDA/AMD/AVGO/TSM/MRVL/MU/ARM/ASML/AMAT/LRCX/KLAC/QCOM。
+  3. 服务器/电力/网络：SMCI/DELL/ANET/VRT/ETN/GEV。
+  4. 软件/AI应用：PLTR/NOW/ORCL/CRM/ADBE/SNOW/CRWD/DDOG。
+  5. 消费/金融/防守：NFLX/COST/WMT/JPM/V/LLY/UNH。
 - 在“AI选股雷达”章节必须固定分成三类：“每日热门股”“有潜力的股票”“可抄底观察信号”，并用同一张表输出。
-- 每个候选必须写清：所属主线、为什么现在关注、次日验证条件、失效条件、风险提示。
-- 每栏候选按“股票 - 主线 - 证据 - 触发 - 失效 - 风险”压缩输出，优先给能代表指数和热门方向的票，不要堆长篇解释。
+- 每类最多 3 只；整张表至少覆盖 3 个不同篮子，除非输入数据明确显示只有单一主线有效。
+- 每个候选必须写清：所属主线、所属篮子、为什么现在关注、次日验证条件、失效条件、风险提示。
+- 每栏候选按“股票 - 主线 - 篮子 - 证据 - 触发 - 失效 - 风险”压缩输出，优先给能代表指数和热门方向的票，不要堆长篇解释。
+- 每次最多只能有 1 只来自“核心权重”篮子进入“有潜力的股票”，避免把潜力股写成大型科技复读。
 - “可抄底观察信号”不是每天都必须有；只有出现止跌、主线修复、风险释放三个相对条件时才列出，否则写“无有效抄底信号”。
 - 没有个股行情数据时只能作为“观察池，需量价确认”；禁止编造具体股价、跌幅百分比、均线数值或“连续几日”条件。"""
         if self.region == "cn":
@@ -1561,13 +1579,13 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 > Watchlist only. Confirm with price/volume triggers and invalidation discipline; not investment advice.
 
 #### Daily Hot Stocks
-- AI / semiconductor / mega-cap tech focus: {_US_AI_STOCK_POOL}. Prioritize names tied to today's strongest index and news clues.
+- Multi-basket focus: mega-cap leadership, AI compute/chips, semiconductor equipment, servers/networking/power, enterprise AI software, and defensive rotation. Reference pool: {_US_AI_STOCK_POOL}.
 
 #### High-Potential Stocks
-- Screen for leaders holding above key moving averages, stronger relative strength than Nasdaq/S&P 500, and continued AI or cloud catalyst confirmation.
+- Screen beyond mega-cap technology: include at least one non-mega-cap basket when supported by index/news clues. Prefer relative-strength leaders in AI infrastructure, software adoption, power/networking, or defensive rotation.
 
 #### Dip-Buy/Reversal Watch
-- Only watch for names that pull back toward support, stop falling with improving volume, and reclaim intraday resistance. Invalidation: support breaks with expanding downside volume.
+- Only watch for names that pull back toward support, stop falling with improving volume, and reclaim intraday resistance. If no setup qualifies, state "No valid dip-buy signal". Invalidation: support breaks with expanding downside volume.
 """
             if self.region == "cn":
                 return f"""### AI Stock Selection Radar
@@ -1600,13 +1618,13 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 > 仅作观察池：必须等待量价触发和失效条件确认，不构成投资建议。
 
 #### 每日热门股
-- AI/半导体/大型科技权重方向：{_US_AI_STOCK_POOL}。优先筛选与当日指数和新闻线索共振的个股。
+- 多篮子观察：核心权重、AI算力/芯片、服务器/电力/网络、软件/AI应用、消费/金融/防守。参考池：{_US_AI_STOCK_POOL}。
 
 #### 有潜力的股票
-- 重点观察相对纳指/标普更强、站稳关键均线、且 AI/云/算力催化仍在延续的龙头。
+- 不只看大型科技。优先观察相对纳指/标普更强、主线催化延续、且来自不同篮子的候选，例如服务器电力、企业软件、半导体设备或防守轮动。
 
 #### 可抄底观察信号
-- 只观察回踩支撑后止跌、缩量调整后重新放量、并收复日内压力位的候选。失效条件：放量跌破支撑或主线退潮。
+- 只观察回踩支撑后止跌、缩量调整后重新放量、并收复日内压力位的候选。若无合格形态，写“无有效抄底信号”。失效条件：放量跌破支撑或主线退潮。
 """
         if self.region == "cn":
             return f"""### AI选股雷达
